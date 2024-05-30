@@ -1,86 +1,75 @@
+import os
+
 import psycopg2
+from dotenv import load_dotenv
 
-db_name = 'n47'
-password = '1'
-host = 'localhost'
-port = 5432
-user = 'postgres'
+load_dotenv()
+db_params = {
+    'database': os.getenv('database'),
+    'user': os.getenv('user'),
+    'password': os.getenv('password'),
+    'host': os.getenv('host'),
+    'port': os.getenv('port'),
+}
 
-with psycopg2.connect(dbname=db_name,
-                      user=user,
-                      password=password,
-                      host=host,
-                      port=port) as conn:
-    with conn.cursor() as cur:
-        def menyu():
-            print("assalomu alykum xush kelibssz")
-            print("table yaratamiz ")
-            return create_table_query()
+class CAntextConnectDB:
+    def __init__(self, db_params: dict):
+        self.db_params = db_params
 
-        def create_table_query():
-            create_table="""
-            CREATE TABLE IF NOT EXISTS productss(
-            id serial PRIMARY KEY,
-            name varchar(255) not null,
-            image varchar(255) not null,
-            create_at timestamp not null default CURRENT_TIMESTAMP,
-            update_at timestamp not null default CURRENT_TIMESTAMP);
+    def __enter__(self):
+        self.conn = psycopg2.connect(**self.db_params)
+        self.cur = self.conn.cursor()
+
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is not None:
+            self.conn.rollback()
+        if self.conn:
+            self.cur.close()
+            self.conn.close()
+
+    def commit(self):
+        self.conn.commit()
+
+
+def table():
+    with CAntextConnectDB(db_params) as db:
+        crete_table="""create table if not exists productss(
+           id serial primary key,
+           name varchar(255),
+           price int)"""
+        db.cur.execute(crete_table)
+        db.commit()
+        print('table yaratildi')
+table()
+
+
+class Product:
+    def __init__(self, name,price:int):
+        self.name = name
+        self.price = price
+
+    def insert(self):
+        with CAntextConnectDB(db_params) as db:
+            insert_into_car = """INSERT INTO productss(name,price)
+            values (%s,%s);
             """
-            cur.execute(create_table)
-            conn.commit()
-            return insert_data_query()
-        def alter_table_query():
-            alter_table="""alter table productss
-            add column is_liked boolean not null default FALSE; """
-            cur.execute(alter_table)
-            conn.commit()
-            return create_table_query()
-        def insert_data_query(data):
-            name=input("name:")
-            image=input("image:")
-            is_liked=input("is_liked:")
-            insert_data="""insert into productss(name, image,is_liked) values (%s,%s,%s,%s)"""
-            cur.execute(insert_data,(name,image,is_liked))
-            conn.commit()
-            return select_data_query()
-
-        def select_data_query():
-            select_data="""select * from productss;"""
-            cur.execute(select_data)
-            return cur.fetchall()
-        #bu bizga hozi hamma malumotlarini olib beradi
-        def select_all_data_query():
-            select_all="""select * from productss where id=1; """
-            cur.execute(select_all)
-            return cur.fetchall()
-        #bu bizga id buyicha bitta malumot qaytaradi
-        def update_table_query():
-          update_table = """update productss set name = %s,image = %s where id = %s"""
-          name = input('Enter title: ')
-          image = input('Enter Image : ')
-          _id = int(input('ID : '))
-          cur.execute(update_table, (title, image, _id))
-          conn.commit()
-          return select_all_data_query()
-
-        def delete_table_query():
-            _id = int(input('ID : '))
-            delete_data="""delete from categories where id = %s;"""
-            data = (_id,)
-            cur.execute(delete_data, data)
-            conn.commit()
-            return select_all_data_query()
-        def create_table():
-            table="""create table employee(
-            id serial PRIMARY KEY,
-            name varchar(255) not null,
-            price float not null ,
-            product_id int references products(id)
-            );
-            """
-            cur.execute(table)
-            conn.commit()
-            return f'employe table yaratildi'
-
-if __name__ == '__main__':
-    create_table()
+            db.cur.execute(insert_into_car, (self.name,self.price))
+            db.commit()
+            print('malumotlar qushildi')
+product1=Product('a32',1000)
+product2=Product('iphone12',2300)
+product3=Product('muslatkich',4500)
+product1.insert()
+product2.insert()
+product3.insert()
+def select_products():
+    with CAntextConnectDB(db_params) as db:
+        select="""select * from productss;
+        """
+        db.cur.execute(select)
+        productss=db.cur.fetchall()
+        for product in productss:
+            print(product)
+select_products()
